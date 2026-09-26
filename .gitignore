@@ -1,0 +1,26 @@
+# Virtual environment
+.venv/
+
+# Environment variables / API keys
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated/processed data
+data/processed/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Qdrant local database
+qdrant_storage/
