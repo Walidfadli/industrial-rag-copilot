@@ -5,11 +5,11 @@
     "expected_sources": [
       {
         "source_file": "pump_general_maintenance.pdf",
-        "page": 29
+        "page": 30
       },
       {
         "source_file": "pump_general_maintenance.pdf",
-        "page": 11
+        "page": 12
       }
     ],
     "expected_points": [
@@ -25,7 +25,7 @@
     "expected_sources": [
       {
         "source_file": "pump_general_maintenance.pdf",
-        "page": 11
+        "page": 12
       }
     ],
     "expected_points": [
@@ -41,7 +41,7 @@
     "expected_sources": [
       {
         "source_file": "pump_general_maintenance.pdf",
-        "page": 29
+        "page": 30
       }
     ],
     "expected_points": [
@@ -56,7 +56,7 @@
     "expected_sources": [
       {
         "source_file": "pump_startup_troubleshooting.pdf",
-        "page": 5
+        "page": 6
       }
     ],
     "expected_points": [
@@ -77,7 +77,7 @@
     "expected_sources": [
       {
         "source_file": "pump_troubleshooting.pdf",
-        "page": 7
+        "page": 8
       }
     ],
     "expected_points": [
@@ -94,15 +94,15 @@
     "expected_sources": [
       {
         "source_file": "pump_startup_troubleshooting.pdf",
-        "page": 12
+        "page": 13
       },
       {
         "source_file": "pump_troubleshooting.pdf",
-        "page": 19
+        "page": 20
       },
       {
         "source_file": "pump_general_installation_maintenance.pdf",
-        "page": 25
+        "page": 26
       }
     ],
     "expected_points": [

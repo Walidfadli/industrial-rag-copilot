@@ -78,6 +78,11 @@ def build_context(reranked_results):
             "Unknown"
         )
 
+        section = result.payload.get(
+            "section",
+            "Unknown"
+        )
+
         text = result.payload.get(
             "text",
             ""
@@ -85,9 +90,10 @@ def build_context(reranked_results):
 
         context_parts.append(
             f"""
-SOURCE {i}
+[SOURCE {i}]
 Document: {source}
 Page: {page}
+Section: {section}
 
 {text}
 """
@@ -103,29 +109,60 @@ Page: {page}
 def build_prompt(query, context):
 
     return f"""
-You are an AI assistant specialized in
-industrial pump maintenance.
+You are an AI assistant specialized in industrial
+pump maintenance.
 
-Answer the user's question using ONLY the
-technical documentation provided below.
+Answer the user's question using ONLY the technical
+documentation provided below.
 
-Rules:
+GROUNDING RULES:
 
-1. Answer ONLY using the provided documentation.
-2. Do not use outside knowledge or assumptions.
-3. Extract all directly relevant causes, conditions,
-   and troubleshooting actions from the retrieved
+1. Use only information explicitly supported by the
+   provided documentation.
+
+2. The retrieved passages may come from different
+   parts of the manuals. Combine information from
+   multiple passages when they are relevant to the
+   same question.
+
+3. If a retrieved passage directly addresses the
+   user's question, USE that evidence to answer.
+   Do not refuse to answer simply because the passage
+   does not contain every possible detail.
+
+4. Do not use outside knowledge or assumptions.
+
+5. Do not invent causes, procedures, values,
+   recommendations, or safety instructions.
+
+6. Include the relevant causes, conditions, checks,
+   or remedies that are explicitly supported by the
    documentation.
-4. Do not omit a relevant troubleshooting cause
-   that is explicitly stated in the context.
-5. Distinguish between:
-   - directly documented causes
-   - related operating conditions
-   - recommended checks or remedies
-6. If the documentation does not provide enough
-   evidence for a claim, explicitly say so.
-7. Cite the document and page for each important claim.
-8. Keep the answer concise and practical.
+
+7. If the documentation provides only part of the
+   answer, give the supported part and clearly state
+   what information is not available.
+
+8. Only say:
+
+   "I could not find enough information to answer
+   this question in the provided manuals."
+
+   when NONE of the retrieved passages provides
+   useful evidence for answering the question.
+
+9. Every important technical claim must include a
+   citation using this format:
+
+   [document_name, p. X]
+
+10. Only cite document names and page numbers that
+    appear in the provided documentation.
+
+11. Keep the answer concise and practical.
+
+12. Do not mention Qdrant, embeddings, reranking,
+    retrieval, prompts, or the internal RAG system.
 
 TECHNICAL DOCUMENTATION
 =======================
@@ -143,7 +180,7 @@ ANSWER
 
 
 # --------------------------------------------------
-# Generate Gemini response with retry
+# Generate Gemini response
 # --------------------------------------------------
 
 def generate_answer(llm, prompt):
@@ -157,15 +194,21 @@ def generate_answer(llm, prompt):
                 contents=prompt,
             )
 
-            return response.text
+            if not response.text:
+                return (
+                    "generation_failed",
+                    "The AI model returned an empty response."
+                )
+
+            return "success", response.text
 
         except Exception as e:
 
             error_message = str(e)
 
-            # --------------------------------------------------
+            # ------------------------------------------
             # Gemini quota exceeded
-            # --------------------------------------------------
+            # ------------------------------------------
 
             if (
                 "429" in error_message
@@ -173,16 +216,17 @@ def generate_answer(llm, prompt):
             ):
 
                 return (
-                    "⚠️ **AI generation quota exceeded.**\n\n"
-                    "Gemini's current free-tier request quota has been "
-                    "reached. The retrieved technical documentation is "
-                    "still available, but a new AI-generated answer "
-                    "cannot be produced until the quota resets."
+                    "quota_exceeded",
+                    "Gemini's current free-tier quota has "
+                    "been reached. The technical documents "
+                    "were successfully retrieved, but an "
+                    "AI-generated answer cannot be produced "
+                    "until the quota resets."
                 )
 
-            # --------------------------------------------------
-            # Temporary Gemini server unavailability
-            # --------------------------------------------------
+            # ------------------------------------------
+            # Temporary Gemini server error
+            # ------------------------------------------
 
             if (
                 "503" in error_message
@@ -206,19 +250,66 @@ def generate_answer(llm, prompt):
                     continue
 
                 return (
-                    "⚠️ **AI generation is temporarily unavailable.**\n\n"
-                    "The relevant technical documentation was successfully "
-                    "retrieved, but the language model could not generate "
-                    "the answer at this time.\n\n"
-                    "Please try again in a few moments. The retrieved sources "
-                    "are still available below."
+                    "generation_failed",
+                    "Gemini is temporarily unavailable. "
+                    "The technical documentation was "
+                    "successfully retrieved, but the answer "
+                    "could not be generated."
                 )
 
-            # --------------------------------------------------
+            # ------------------------------------------
             # Unexpected error
-            # --------------------------------------------------
+            # ------------------------------------------
 
-            raise e
+            raise
+
+
+# --------------------------------------------------
+# Extract source information
+# --------------------------------------------------
+
+def extract_sources(reranked_results):
+
+    sources = []
+
+    for rank, item in enumerate(
+        reranked_results,
+        start=1
+    ):
+
+        result = item["result"]
+
+        source = result.payload.get(
+            "source_file",
+            "Unknown"
+        )
+
+        page = result.payload.get(
+            "page",
+            "Unknown"
+        )
+
+        section = result.payload.get(
+            "section",
+            "Unknown"
+        )
+
+        sources.append(
+            {
+                "rank": rank,
+                "source_file": source,
+                "page": page,
+                "section": section,
+                "qdrant_score": float(
+                    result.score
+                ),
+                "rerank_score": float(
+                    item["rerank_score"]
+                ),
+            }
+        )
+
+    return sources
 
 
 # --------------------------------------------------
@@ -233,9 +324,9 @@ def answer_question(
     llm,
 ):
 
-    # --------------------------------------------------
-    # Step 1: Retrieve candidates
-    # --------------------------------------------------
+    # ----------------------------------------------
+    # Step 1: Dense retrieval
+    # ----------------------------------------------
 
     results = search(
         query=query,
@@ -249,10 +340,9 @@ def answer_question(
         f"from Qdrant."
     )
 
-
-    # --------------------------------------------------
-    # Step 2: Rerank candidates
-    # --------------------------------------------------
+    # ----------------------------------------------
+    # Step 2: Cross-encoder reranking
+    # ----------------------------------------------
 
     reranked_results = rerank(
         query=query,
@@ -266,37 +356,48 @@ def answer_question(
         f"{len(reranked_results)} chunks."
     )
 
-
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Step 3: Build context
-    # --------------------------------------------------
+    # ----------------------------------------------
 
     context = build_context(
         reranked_results
     )
 
 
-    # --------------------------------------------------
-    # Step 4: Build prompt
-    # --------------------------------------------------
+    # ----------------------------------------------
+    # Step 4: Build grounded prompt
+    # ----------------------------------------------
 
     prompt = build_prompt(
         query=query,
         context=context,
     )
 
-
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Step 5: Generate answer
-    # --------------------------------------------------
+    # ----------------------------------------------
 
-    answer = generate_answer(
+    status, answer = generate_answer(
         llm=llm,
         prompt=prompt,
     )
 
+    # ----------------------------------------------
+    # Step 6: Extract sources
+    # ----------------------------------------------
 
-    return answer, reranked_results
+    sources = extract_sources(
+        reranked_results
+    )
+
+    return {
+        "status": status,
+        "answer": answer,
+        "sources": sources,
+        "retrieved_count": len(results),
+        "reranked_count": len(reranked_results),
+    }
 
 
 # --------------------------------------------------
@@ -307,10 +408,9 @@ if __name__ == "__main__":
 
     print("Starting RAG system...")
 
-
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Create components
-    # --------------------------------------------------
+    # ----------------------------------------------
 
     client = create_qdrant_client()
 
@@ -320,22 +420,20 @@ if __name__ == "__main__":
 
     llm = create_llm()
 
-
-    # --------------------------------------------------
-    # User query
-    # --------------------------------------------------
+    # ----------------------------------------------
+    # Test query
+    # ----------------------------------------------
 
     query = (
         "Why can a pump have "
         "excessive discharge pressure?"
     )
 
-
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Run RAG
-    # --------------------------------------------------
+    # ----------------------------------------------
 
-    answer, results = answer_question(
+    result = answer_question(
         query=query,
         client=client,
         embedding_model=embedding_model,
@@ -343,64 +441,47 @@ if __name__ == "__main__":
         llm=llm,
     )
 
-
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Display answer
-    # --------------------------------------------------
+    # ----------------------------------------------
 
     print("\n" + "=" * 70)
     print("RAG ANSWER")
     print("=" * 70)
 
-    print(answer)
+    print(
+        f"\nStatus: {result['status']}"
+    )
 
+    print(
+        f"\n{result['answer']}"
+    )
 
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Display sources
-    # --------------------------------------------------
+    # ----------------------------------------------
 
     print("\n" + "=" * 70)
     print("RERANKED SOURCES")
     print("=" * 70)
 
-    for i, item in enumerate(
-        results,
-        start=1
-    ):
-
-        result = item["result"]
-
-        rerank_score = item[
-            "rerank_score"
-        ]
-
-        source = result.payload.get(
-            "source_file",
-            "Unknown"
-        )
-
-        page = result.payload.get(
-            "page",
-            "Unknown"
-        )
-
-        qdrant_score = result.score
+    for source in result["sources"]:
 
         print(
-            f"{i}. {source} | "
-            f"Page {page} | "
-            f"Qdrant: {qdrant_score:.4f} | "
-            f"Rerank: {rerank_score:.4f}"
+            f"{source['rank']}. "
+            f"{source['source_file']} | "
+            f"Page {source['page']} | "
+            f"Section: {source['section']} | "
+            f"Qdrant: {source['qdrant_score']:.4f} | "
+            f"Rerank: {source['rerank_score']:.4f}"
         )
 
-
-    # --------------------------------------------------
+    # ----------------------------------------------
     # Close Qdrant
-    # --------------------------------------------------
+    # ----------------------------------------------
 
     client.close()
 
     print(
         "\nRAG pipeline completed."
     )
-
