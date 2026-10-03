@@ -1,0 +1,70 @@
+[
+  {
+    "id": "q1",
+    "question": "Why can a pump have excessive discharge pressure?",
+    "expected_points": [
+      "The suction and/or discharge lines can be closed or blocked.",
+      "Excessive pump speed can cause the problem.",
+      "The pressure relief valve may fail to open.",
+      "The pump should have overpressure protection using relief valves."
+    ]
+  },
+  {
+    "id": "q2",
+    "question": "How can a pump be protected from overpressure?",
+    "expected_points": [
+      "Use relief valves to protect the pump from overpressure.",
+      "Provide pump overpressure protection to prevent pump or driver malfunction and rupture of the pump or piping.",
+      "Do not set the relief valve higher than the maximum pressure rating of the pump.",
+      "The relief valve should be connected in the pump discharge line close to the pump."
+    ]
+  },
+  {
+    "id": "q3",
+    "question": "What can cause a pressure relief valve not to open?",
+    "expected_points": [
+      "Spring tension can be too high.",
+      "Foreign particles can be present in the valve.",
+      "Pump operating temperature can be too high."
+    ]
+  },
+  {
+    "id": "q4",
+    "question": "What operating factors affect pump performance?",
+    "expected_points": [
+      "Speed",
+      "Liquid viscosity",
+      "Temperature",
+      "Inlet pressure",
+      "Discharge pressure",
+      "Filtration",
+      "Duty cycle",
+      "Drive type",
+      "Mounting"
+    ]
+  },
+  {
+    "id": "q5",
+    "question": "What are the requirements for the pump suction line?",
+    "expected_points": [
+      "Pump inlet pressure should be greater than or equal to the minimum required pump inlet pressure (NPIPR).",
+      "The suction line should be as short as possible.",
+      "The suction line diameter should be equal to or larger than the pump inlet size.",
+      "All suction-line joints must be tight and sealed.",
+      "A foot valve or liquid trap should prevent the suction line from draining when required."
+    ]
+  },
+  {
+    "id": "q6",
+    "question": "What can cause abnormal pump vibration?",
+    "expected_points": [
+      "Misalignment",
+      "Restricted suction line",
+      "Air in the system",
+      "Dirty suction strainer",
+      "Relief valve chatter or leakage",
+      "Heavy internal rubbing of pump parts",
+      "Mechanical problems"
+    ]
+  }
+]
