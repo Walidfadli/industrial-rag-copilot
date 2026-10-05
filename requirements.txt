@@ -8,3 +8,6 @@ google-genai
 python-dotenv
 streamlit
 rank-bm25
+requests
+fastapi
+uvicorn[standard]

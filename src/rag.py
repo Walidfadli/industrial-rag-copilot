@@ -269,49 +269,60 @@ def generate_answer(llm, prompt):
 # --------------------------------------------------
 
 def extract_sources(reranked_results):
+    """
+    Extract source information from reranked results,
+    including the original retrieved text.
+    """
 
     sources = []
 
     for rank, item in enumerate(
         reranked_results,
-        start=1
+        start=1,
     ):
 
         result = item["result"]
 
-        source = result.payload.get(
-            "source_file",
-            "Unknown"
-        )
-
-        page = result.payload.get(
-            "page",
-            "Unknown"
-        )
-
-        section = result.payload.get(
-            "section",
-            "Unknown"
-        )
+        payload = result.payload or {}
 
         sources.append(
             {
                 "rank": rank,
-                "source_file": source,
-                "page": page,
-                "section": section,
+
+                "source_file": payload.get(
+                    "source_file",
+                    "Unknown",
+                ),
+
+                "page": payload.get(
+                    "page",
+                    "Unknown",
+                ),
+
+                "section": payload.get(
+                    "section",
+                    "",
+                ),
+
+                "text": payload.get(
+                    "text",
+                    "",
+                ),
+
                 "qdrant_score": float(
                     result.score
                 ),
+
                 "rerank_score": float(
-                    item["rerank_score"]
+                    item.get(
+                        "rerank_score",
+                        0,
+                    )
                 ),
             }
         )
 
     return sources
-
-
 # --------------------------------------------------
 # Full RAG pipeline
 # --------------------------------------------------
